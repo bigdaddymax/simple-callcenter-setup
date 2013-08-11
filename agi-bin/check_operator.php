@@ -88,7 +88,7 @@ $i = 0;
 while ($gotcode != TRUE) {
     $i++;
     // Ask for operator code 3 times
-    $result = execute_agi("GET DATA odeko/vvedit_kod_operatora 5000 4");
+    $result = execute_agi("GET DATA cc/enter_operator_code 5000 4");
     if ($i < 4) {
         if ($result['result']) {
             $operator_code = $result['result'];
@@ -106,7 +106,7 @@ while ($gotcode != TRUE) {
             }
         }
     } else {
-        execute_agi("STREAM FILE odeko/diakuju_do_pobachennia \"\"");
+        execute_agi("STREAM FILE cc/thank_you_good_bye \"\"");
         execute_agi("HANGUP");
         exit;
     }
@@ -118,7 +118,7 @@ $i = 0;
 while ($gotcode != TRUE) {
     $i++;
     if ($i < 4) {
-        $result = execute_agi("GET DATA odeko/vvedit_parol 5000 4");
+        $result = execute_agi("GET DATA cc/enter_pin 5000 4");
         if ($result['result'] > 1) {
             $operator_pin = $result['result'];
             if ($pin == $operator_pin) {
@@ -126,7 +126,7 @@ while ($gotcode != TRUE) {
             }
         }
     } else {
-        execute_agi("STREAM FILE odeko/diakuju_do_pobachennia \"\"");
+        execute_agi("STREAM FILE cc/thank_you_good_bye \"\"");
         execute_agi("HANGUP");
         exit;
     }
@@ -202,7 +202,7 @@ if ($agi['extension'] == 2880) {
         die('Cannot select data from MySQL ' . mysql_error());
     }
     execute_agi("EXEC ADDQUEUEMEMBER " . $queue . "," . $interface . "," . $penalty . ",,," . $stateinterface);
-    execute_agi("STREAM FILE odeko/uspishno_vvijshly \"\"");
+    execute_agi("STREAM FILE cc/successful_login \"\"");
     errlog('Added member ' . $operator_code . ' on ' . $interface . ' with penalty ' . $penalty . ' with stateinterface: ' . $stateinterface);
 }
 
@@ -218,11 +218,11 @@ if ($agi['extension'] == 2881) {
     if ($row[0] == $operator_code) {
         execute_agi("EXEC RemoveQueueMember " . $queue . "," . $interface);
         errlog('Removed member from queue on ' . $interface);
-        execute_agi("STREAM FILE odeko/uspishno_vyjshly \"\"");
+        execute_agi("STREAM FILE cc/successful_logout \"\"");
     }
 }
 // Bye bye
-execute_agi("STREAM FILE odeko/diakuju_do_pobachennia \"\"");
+execute_agi("STREAM FILE cc/thank_you_good_bye \"\"");
 
 fclose($stdlog);
 mysql_close($db_link);

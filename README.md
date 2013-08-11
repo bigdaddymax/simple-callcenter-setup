@@ -74,6 +74,19 @@ Now we define our queues:
 #### Extensions.ael
 
 In this file we define behaviour of all parts of our callcenter. We want that all calls go through "inbound" context.
+Also we define here contexts for our queues, voice messaging and outbound calls, agents (if they us).
+
+For operators everything begins from dialing 2880 (you can configure whatever extension you want). Such a call is routed to check_operator.php AGI script. See file for further details.
+Script allows operator to login to system from any interface, so operator is not tied to particular physical location or particular port.
+After successful login operator's interface is added to the queue and operator is ready to receive calls.
+To logout operator dials 2881.
+
+Operators can transfer calls to other queues or extensions, this feature is secured by *transfered* context and setting variable  
+    
+    Set(__TRANSFER_CONTEXT=transfered)
+
+While in queues callers can leave a voice message to operator by dialing any digit:
+
 
  
 

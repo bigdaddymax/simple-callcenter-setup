@@ -112,6 +112,10 @@ context inbound {
 	    goto techsupport,s,queue;
     }  
 
+    _700X => {
+	    Dial(SIP/tech_${EXTEN},,tT);
+    }
+
     _4000 =>{
 	    Ringing();
 	    Answer();
@@ -119,10 +123,6 @@ context inbound {
 	    goto callcenter,s,queue;
     }    
    
-    _40XX => {
-	    Dial(SIP/supp_${EXTEN},,tT);
-    }
- 
     _6000 => {
 	    Ringing();
 	    Answer();
@@ -130,16 +130,8 @@ context inbound {
 	    goto emergency,s,queue;
     }
    
-    5001 => {
-            Dial(SIP/5001@asterisk-che);
-    }
-
-    5002 => {
-            Dial(SIP/5002@asterisk-che);
-    }
-   
-    5000 => {
-	    Dial(SIP/5000@asterisk-che);
+    _500[0-2] => {
+            Dial(SIP/${EXTEN}@asterisk-che);
     }
    
     _2361026 =>{
@@ -149,7 +141,7 @@ context inbound {
 	    goto techsupport,s,start;
     }		
 
-    _[0-9][0-9]XX. => {
+    _XXXX. => {
 	    AGI(outgoing_call.php);
 	    MixMonitor(${UNIQUEID}.gsm);
 	    Noop('blublu');
@@ -158,13 +150,6 @@ context inbound {
 	    AGI(outgoing_stop.php);
     }
 
-   _1XXX => {
-            Dial(SIP/${EXTEN}@gateway,,tT);
-    }
-
-   _700X => {
-	    Dial(SIP/tech_${EXTEN},,tT);
-    }
 }
 
 // Operator can transfer calls only to other queue or internal number
@@ -195,13 +180,12 @@ context callcenter {
   start:
 	    Ringing();
 	    Wait(1);
-	    Playback(odeko/vitajemo);
-//	    Background(odeko/avarija2);
+	    Playback(cc/welcome);
             Set(__TRANSFER_CONTEXT=transfered);
-	    Playback(odeko/vasha_rozmova_zapysujetsia);
+	    Playback(cc/your_call_is_recorded);
   queue:
 	    Queue(callcenterq,tT);
-	    Playback(odeko/diakuju_do_pobachennia);
+	    Playback(cc/thank_you_good_bye);
 	    Hangup();
     }	    
     
@@ -211,12 +195,12 @@ context callcenter {
 context emergency {
     s => {
   start:   Ringing();
-	   Playback(odeko/vitajemo);
-           Playback(odeko/vasha_rozmova_zapysujetsia);
-//	    Background(odeko/avarija2);
+	   Playback(cc/welcome);
+           Playback(cc/your_call_is_recorded);
+           Set(__TRANSFER_CONTEXT=transfered);
   queue:
            Queue(emergencyq,tT);
-           Playback(odeko/diakuju_do_pobachennia);
+           Playback(cc/thank_you_good_bye);
            Hangup();
     }
 }
@@ -225,38 +209,29 @@ context emergency {
 context techsupport {
     s => {
   start:   Ringing();
-	   Playback(odeko/vitajemo);
-           Playback(odeko/vasha_rozmova_zapysujetsia);
-
+	   Playback(cc/welcome);
+           Playback(cc/your_call_is_recorded);
+           Set(__TRANSFER_CONTEXT=transfered);
  queue:
            Queue(techsupport,tT);
-           Playback(odeko/diakuju_do_pobachennia);
+           Playback(cc/thank_you_good_bye);
            Hangup();
     }
 }
 
 // When calling techsupport customer could leave a voicemail message
 context tech_voicemail {
-	2 => {
-		CHANNEL(language)=odeko;
+	_X => {
 		Voicemail(7007@default);
 	}
 }
 
 context agents_loginout {
-    2880 => {
-	    Answer();
-	    if(${CALLERID(num)}=2360909) goto stop;
-	    AGI(check_operator.php);
-  stop:
-	    Hangup();
-    }
-    2881 => {
+    288[01] => {
 	    Answer();
 	    AGI(check_operator.php);
 	    Hangup();
     }
-
 }
 
 context agents {
@@ -276,7 +251,8 @@ context agents {
    }
    _000XX => {
    	    Dial(SIP/${EXTEN}@sc_gate,,tT);
-   }   }
+   }
+}
 
 // Context for autodialer
 context dialout {
