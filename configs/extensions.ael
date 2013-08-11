@@ -1,0 +1,299 @@
+//
+// Example AEL config file
+//
+//
+// Static extension configuration file, used by
+// the pbx_ael module. This is where you configure all your 
+// inbound and outbound calls in Asterisk. 
+// 
+// This configuration file is reloaded 
+// - With the "ael reload" command in the CLI
+// - With the "reload" command (that reloads everything) in the CLI
+
+// The "Globals" category contains global variables that can be referenced
+// in the dialplan by using the GLOBAL dialplan function:
+//  ${GLOBAL(VARIABLE)} 
+// ${${GLOBAL(VARIABLE)}} or ${text${GLOBAL(VARIABLE)}} or any hybrid
+// Unix/Linux environmental variables are reached with the ENV dialplan
+// function: ${ENV(VARIABLE)}
+//
+
+globals {
+	CONSOLE="Console/dsp"; 		// Console interface for demo
+	//
+	// Note the 'g2' in the TRUNK variable above. It specifies which group (defined
+	// in zapata.conf) to dial, i.e. group 2, and how to choose a channel to use in
+	// the specified group. The four possible options are:
+	//
+	// g: select the lowest-numbered non-busy Zap channel
+	//    (aka. ascending sequential hunt group).
+	// G: select the highest-numbered non-busy Zap channel
+	//    (aka. descending sequential hunt group).
+	// r: use a round-robin search, starting at the next highest channel than last
+	//    time (aka. ascending rotary hunt group).
+	// R: use a round-robin search, starting at the next lowest channel than last
+	//    time (aka. descending rotary hunt group).
+	//
+};
+
+//
+// Any category other than "General" and "Globals" represent 
+// extension contexts, which are collections of extensions.  
+//
+// Extension names may be numbers, letters, or combinations
+// thereof. If an extension name is prefixed by a '_'
+// character, it is interpreted as a pattern rather than a
+// literal.  In patterns, some characters have special meanings:
+//
+//   X - any digit from 0-9
+//   Z - any digit from 1-9
+//   N - any digit from 2-9
+//   [1235-9] - any digit in the brackets (in this example, 1,2,3,5,6,7,8,9)
+//   . - wildcard, matches anything remaining (e.g. _9011. matches 
+//	anything starting with 9011 excluding 9011 itself)
+//   ! - wildcard, causes the matching process to complete as soon as
+//       it can unambiguously determine that no other matches are possible
+//
+// For example the extension _NXXXXXX would match normal 7 digit dialings, 
+// while _1NXXNXXXXXX would represent an area code plus phone number
+// preceded by a one.
+//
+// Each step of an extension is ordered by priority, which must
+// always start with 1 to be considered a valid extension.  The priority
+// "next" or "n" means the previous priority plus one, regardless of whether
+// the previous priority was associated with the current extension or not.
+// The priority "same" or "s" means the same as the previously specified
+// priority, again regardless of whether the previous entry was for the
+// same extension.  Priorities may be immediately followed by a plus sign
+// and another integer to add that amount (most useful with 's' or 'n').  
+// Priorities may then also have an alias, or label, in 
+// parenthesis after their name which can be used in goto situations
+//
+// Contexts contain several lines, one for each step of each
+// extension, which can take one of two forms as listed below,
+// with the first form being preferred.  One may include another
+// context in the current one as well, optionally with a
+// date and time.  Included contexts are included in the order
+// they are listed.
+//
+//context name {
+//	exten-name => {
+//		application(arg1,arg2,...);
+//
+// 	Timing list for includes is 
+//
+//   <time range>|<days of week>|<days of month>|<months>
+//
+//	includes { 
+//		daytime|9:00-17:00|mon-fri|*|*;
+//      };
+//
+// 	ignorepat can be used to instruct drivers to not cancel dialtone upon
+// 	receipt of a particular pattern.  The most commonly used example is
+// 	of course '9' like this:
+//
+//	ignorepat => 9;
+//
+// 	so that dialtone remains even after dialing a 9.
+//};
+
+// All internal calls handling
+context inbound {
+    includes {
+	agents_loginout;
+	agents;
+    }
+        
+    
+    _7000 =>{
+	    Ringing();
+	    Answer();
+	    Wait(1);
+	    goto techsupport,s,queue;
+    }  
+
+    _4000 =>{
+	    Ringing();
+	    Answer();
+	    Wait(1);
+	    goto callcenter,s,queue;
+    }    
+   
+    _40XX => {
+	    Dial(SIP/supp_${EXTEN},,tT);
+    }
+ 
+    _6000 => {
+	    Ringing();
+	    Answer();
+	    Wait(1);
+	    goto emergency,s,queue;
+    }
+   
+    5001 => {
+            Dial(SIP/5001@asterisk-che);
+    }
+
+    5002 => {
+            Dial(SIP/5002@asterisk-che);
+    }
+   
+    5000 => {
+	    Dial(SIP/5000@asterisk-che);
+    }
+   
+    _2361026 =>{
+	    Ringing();
+	    Answer();
+	    Wait(1);
+	    goto techsupport,s,start;
+    }		
+
+    _[0-9][0-9]XX. => {
+	    AGI(outgoing_call.php);
+	    MixMonitor(${UNIQUEID}.gsm);
+	    Noop('blublu');
+	    Dial(SIP/${EXTEN}@gateway,,FgtT);
+	    Noop('blabla');
+	    AGI(outgoing_stop.php);
+    }
+
+   _1XXX => {
+            Dial(SIP/${EXTEN}@gateway,,tT);
+    }
+
+   _700X => {
+	    Dial(SIP/tech_${EXTEN},,tT);
+    }
+}
+
+// Operator can transfer calls only to other queue or internal number
+context transfered {
+   _23610XX => {
+	    Ringing();
+	    Answer();
+	    Wait(1);
+	    switch(${EXTEN})
+	    {
+		case 2361009: goto techsupport,s,queue;
+			break;
+		case 2361026: goto techsupport,s,queue;
+			break;
+		default: Dial(SIP/${EXTEN}@gateway,,tT);
+	    }
+	}
+	
+	
+    _XXXX => {
+	    Dial(SIP/${EXTEN}@gateway,,tT);
+    }
+}
+
+// General queues processing - context used during work hours
+context callcenter {
+    s => {
+  start:
+	    Ringing();
+	    Wait(1);
+	    Playback(odeko/vitajemo);
+//	    Background(odeko/avarija2);
+            Set(__TRANSFER_CONTEXT=transfered);
+	    Playback(odeko/vasha_rozmova_zapysujetsia);
+  queue:
+	    Queue(callcenterq,tT);
+	    Playback(odeko/diakuju_do_pobachennia);
+	    Hangup();
+    }	    
+    
+}
+
+// Called after hours or if there are no logged members 
+context emergency {
+    s => {
+  start:   Ringing();
+	   Playback(odeko/vitajemo);
+           Playback(odeko/vasha_rozmova_zapysujetsia);
+//	    Background(odeko/avarija2);
+  queue:
+           Queue(emergencyq,tT);
+           Playback(odeko/diakuju_do_pobachennia);
+           Hangup();
+    }
+}
+
+// Techsupport queue  
+context techsupport {
+    s => {
+  start:   Ringing();
+	   Playback(odeko/vitajemo);
+           Playback(odeko/vasha_rozmova_zapysujetsia);
+
+ queue:
+           Queue(techsupport,tT);
+           Playback(odeko/diakuju_do_pobachennia);
+           Hangup();
+    }
+}
+
+// When calling techsupport customer could leave a voicemail message
+context tech_voicemail {
+	2 => {
+		CHANNEL(language)=odeko;
+		Voicemail(7007@default);
+	}
+}
+
+context agents_loginout {
+    2880 => {
+	    Answer();
+	    if(${CALLERID(num)}=2360909) goto stop;
+	    AGI(check_operator.php);
+  stop:
+	    Hangup();
+    }
+    2881 => {
+	    Answer();
+	    AGI(check_operator.php);
+	    Hangup();
+    }
+
+}
+
+context agents {
+
+
+   _1XX => {
+            Dial(SIP/${EXTEN}@gateway,,tT);
+   }
+   _10XX => {
+	    Dial(SIP/${EXTEN}@gateway,,tT);
+   }
+   _20XX => {
+	    Dial(SIP/${EXTEN}@gateway,,tT);
+   }
+   _236XXXX => {
+	    Dial(SIP/${EXTEN}@gateway,,tT);
+   }
+   _000XX => {
+   	    Dial(SIP/${EXTEN}@sc_gate,,tT);
+   }   }
+
+// Context for autodialer
+context dialout {
+	s => {
+	   Answer();
+           Wait(1);
+	   AGI(account_status.php);
+	}
+	failed => {
+	  AGI(autodial_failed.php);
+	}
+}
+
+// All operators' outgoing calls go here
+context outgoing {
+	_X. => {
+	    AGI(outgoing_call.php);
+	    Dial(SIP/${EXTEN}@gateway,,g);
+	}
+}
