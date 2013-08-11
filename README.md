@@ -1,8 +1,10 @@
-simple-callcenter-controller
+simple-callcenter-setup
 ====================
 The project has two practical aims for me: 
+
+* setup fully functional callcenter based on Asterisk 
 * to learn Zend Framework on some real project
-* to create a web based application for controlling homebrewed callcenter for our company.
+* to create a web based application for controlling this callcenter for our company (these steps will be described in separate project).
 
 As the application works with Asterisk VoIP platform (http://www.asterisk.org/) 
 some necessery configuration steps of Asterisk are also discribed later.
@@ -15,93 +17,63 @@ What we will need?
 3. Zend Framwork 1.x (this project uses particular ZF 1.10, but I don't think there 
 are some version related problems with older or newer versions of ZF).
 
-Few words about general algorithm
+Features
 --------------------------------
 
 We are going to build real callcenter application with all features that real callcenters have:
+
 * handle simultaneous calls on the same inbound phone number
-* provide configurable IVR with customized prompts and menues
-* provide calls queues
-* calls recording
-* operators performance measurement
+* provide calls queue feature with posibility to leave voice message
+* calls recording (monitoring)
+* operators performance tracking
 * flexible call flow scenarios
 * autodialing customers with prerecorded messaging (for example, due balance, info etc)
-* etc
+* monitoring outgoing calls as well
 
 All incoming calls are processed according to scenarios that are created via web
-interface.
-
-So lets get started.
+interface (web application will be described separately).
 
 Asterisk configuration.
 --------------------
 
 #### General idea
 
-All calls are routed into IVRmenues extension.
+We will use both extensions.ael and extensions.conf
 
-In case if you for some reason has the same weird approach as I do and like to install everything
-from sources here is small tip that might save you some time when compiling asterisk.
+Extensions.ael contains all logic of internal call handling - queues description, voice messages, transfers etc. 
+
+Most contexts and internal logic of extensions.conf will be generated via web application. Extensions.conf will contain 
+only one preconfigured context - IVRmenues. Everything else will be created during web app setup.
+
+Also we want to store everything we can in database - CDR and queues logs - for future use by our app.
+
+#### DB setup
+
+In db.sql you can find sample setup of mysql database. Also you have to configure res_config_mysql.conf and cdr_mysql.conf with your DB 
+parameters and connection credentials.
+To force Asterisk to save CDR data and queue logs to DB uncomment following line in extconfig.conf:
+
+    queue_log=>mysql,asterisk
+
+#### Queues
+
+Now we define our queues:
+
+     [callcenterq]				                   // Queue name
+     music=default                                                 // Music to be played while waiting for operator
+     context=tech_voicemail                                        // Where caller lend if he dials any number while waiting, allow him to leave message
+     strategy=ringall                                              // All operators are called
+     joinempty=strict                                              // If no operators caller cannot join queue
+     leavewhenempty=strict                                         // When last operator leaves all callers in queue will be kicked out, sorry.
+     periodic-announce=odeko/all_operators_busy                    // Announcement to be periodically played
+     periodic-announce-frequency=20                                // How often it will be played
+     monitor-format = gsm                                          // How to store recorded calls (we record everything)
+     setinterfacevar=yes                                           // We need this to preserve interface variable for keep tracking of operators activity
+     wrapuptime=10                                                 // Give operator 10 sec before next call can come
+
+#### Extensions.ael
+
+In this file we define behaviour of all parts of our callcenter. We want that all calls go through "inbound" context.
+
  
-If you use clean Ubuntu server for this project the first steps before compiling 
-source code should be:
-##### apt-get install build-essential
-##### apt-get install libncurses-dev
-
-After Asterisk installation complete and you have Asterisk up and running double
-check that it is compiled with mysql support. To see if that is true run following 
-command in asterisk CLI:
-##### asterisk*CLI> module show like mysql
-
-You should see something like:
-##### Module Description Use Count
-##### cdr_addon_mysql.so MySQL CDR Backend 0
-##### app_addon_sql_mysql.so Simple Mysql Interface 0
-##### res_config_mysql.so MySQL RealTime Configuration Driver 0
-##### 3 modules loaded
-
-If not - please refer to Asterisk documentation, all aspects of installation/configuration
-are described pretty nicely on http://www.voip-info.org/wiki/view/Asterisk
-
-Create new MySQL database "asterisk" with structure that is discibed in application/config/db.sql
-
-Edit [general] section of files cdr_mysql.conf and res_mysql.conf:
-
-     [general]
-      dbhost = localhost
-      dbname = asterisk
-      dbuser = dbuser
-      dbpass = dbpassword
-
-Add *queue_log => mysql,asterisk* to file  *extconfig.conf*.
-
-Edit file *queues.conf*:
-
-    [general]
-     monitor-type = MixMonitor
-
-    [callcenter]
-     music=default
-     context=cс_voicemail
-     strategy=ringall
-     joinempty=yes
-     leavewhenempty=no
-     periodic-announce=cc/all_agents_are_busy
-     periodic-announce-frequency=20
-     eventwhencalled=yes
-     monitor-format = gsm
-
-Now lets move to *extensions.ael*:
-
-    context => cc_main {
-        s=>{
-            Answer();
-            Background(cc/agent_greeting);
-            Queue(callcenter,t);
-           }
-    }
-
-
-Here is one trick - all "hardcoded" setting of our dialplan we will keep in extensions.ael,
-all settings that we will manipulate via web will be stored in extensions.conf.
 
