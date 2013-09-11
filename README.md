@@ -86,6 +86,16 @@ Operators can transfer calls to other queues or extensions, this feature is secu
     Set(__TRANSFER_CONTEXT=transfered)
 
 While in queues callers can leave a voice message to operator by dialing any digit:
+ 
+    *queues.conf:*
+        context=tech_voicemail
+
+    *extensions.ael:*
+    context tech_voicemail {
+	_X => {
+		Voicemail(7007@default);
+	}
+    }
 
 
  
