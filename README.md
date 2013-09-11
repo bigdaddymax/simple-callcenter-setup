@@ -87,10 +87,12 @@ Operators can transfer calls to other queues or extensions, this feature is secu
 
 While in queues callers can leave a voice message to operator by dialing any digit:
  
-    *queues.conf:*
+*queues.conf:*
+
         context=tech_voicemail
 
-    *extensions.ael:*
+*extensions.ael:*
+
     context tech_voicemail {
 	_X => {
 		Voicemail(7007@default);
